@@ -1,0 +1,59 @@
+#!/usr/bin/env /bin/sh
+###
+#  @file   ramdisks
+#  @brief  Create RAM Disks
+#  @author KrizTioaN (christiaanboersma@hotmail.com)
+#  @date   2021-07-24
+#  @note   BSD-3 licensed
+#
+###############################################
+ 
+RAMDisk() {
+    mntpt=$1
+    rdsize=$(($2*1024*1024/512))
+    echo "Creating ramdisk for $mntpt"
+    # Create the RAM disk.
+    dev=`hdik -drivekey system-image=yes -nomount ram://$rdsize`
+    # Successfull creation...
+    if [ $? -eq 0 ] ; then
+        # Create HFS on the RAM volume.
+        newfs_hfs $dev
+        # Store permissions from old mount point.
+        eval `/usr/bin/stat -s $mntpt`
+        # Mount the RAM disk to the target mount point.
+        mount -t hfs -o union -o nobrowse $dev $mntpt
+        # Restore permissions like they were on old volume.
+        chown $st_uid:$st_gid $mntpt
+        chmod $st_mode $mntpt
+    fi
+}
+ 
+# Test for arguments.
+if [ -z $1 ]; then
+    echo "Usage: $0 [start|stop|restart] "
+    exit 1
+fi
+ 
+# Source the common setup functions for startup scripts
+test -r /etc/rc.common || exit 1 
+. /etc/rc.common
+ 
+StartService () {
+    ConsoleMessage "Starting Ramdisk Services..."
+    RAMDisk /var/run 64
+    RAMDisk /private/tmp 512
+    #RAMDisk /var/db 512
+    #mkdir -m 1777 /var/db/mds
+}
+
+StopService () {
+    ConsoleMessage "Stopping Ramdisk Services, nothing to be done..."
+    diskutil unmount /var/run
+    diskutil unmount /private/tmp
+}
+ 
+RestartService () {
+    ConsoleMessage "Restarting Ramdisk Services, nothing to be done..."
+}
+ 
+RunService "$1"
